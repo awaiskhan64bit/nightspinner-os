@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWAIS.SYS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a10;
+    --bg2:#0f0f18;
+    --magenta:#ff2e6f;
+    --cyan:#08f7d4;
+    --purple:#8b5cf6;
+    --amber:#ffb020;
+    --ink:#e9e9f2;
+    --dim:#7a7a8c;
+    --line:rgba(233,233,242,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:radial-gradient(ellipse at 20% 0%, #14101f 0%, var(--bg) 55%);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    overflow:hidden;
+    cursor:default;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'Space Mono',monospace;}
+
+  /* scanlines + noise */
+  .crt{
+    pointer-events:none;
+    position:fixed;inset:0;z-index:9999;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.028) 0px,
+      rgba(255,255,255,0.028) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode:overlay;
+  }
+  .vignette{
+    pointer-events:none;
+    position:fixed;inset:0;z-index:9998;
+    box-shadow: inset 0 0 220px rgba(0,0,0,0.75);
+  }
+
+  /* ---------- BOOT SCREEN ---------- */
+  #boot{
+    position:fixed;inset:0;z-index:100;
+    background:#050508;
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity .6s ease, visibility .6s ease;
+  }
+  #boot.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+  #boot-text{
+    width:min(640px,88vw);
+    font-size:14px;line-height:1.7;
+    color:var(--cyan);
+    white-space:pre-wrap;
+  }
+  #boot-text .amber{color:var(--amber);}
+  #boot-text .mag{color:var(--magenta);}
+  #boot-text .caret{
+    display:inline-block;width:8px;height:14px;background:var(--cyan);
+    animation:blink 1s steps(1) infinite;vertical-align:middle;margin-left:2px;
+  }
+  @keyframes blink{50%{opacity:0;}}
+  #skip{
+    position:fixed;bottom:26px;right:26px;z-index:101;
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--dim);
+    background:transparent;border:1px solid var(--line);padding:8px 14px;
+    border-radius:2px;cursor:pointer;letter-spacing:.08em;
+    transition:.2s;
+  }
+  #skip:hover{color:var(--ink);border-color:var(--cyan);}
+
+  /* ---------- DESKTOP ---------- */
+  #desktop{
+    position:fixed;inset:0;
+    opacity:0; transition:opacity .8s ease;
+  }
+  #desktop.show{opacity:1;}
+
+  /* web-strand canvas backdrop */
+  #webcanvas{position:fixed;inset:0;z-index:0;opacity:.55;}
+
+  .topbar{
+    position:fixed;top:0;left:0;right:0;height:44px;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;
+    background:rgba(10,10,16,0.72);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    font-family:'Space Mono',monospace;font-size:12px;
+  }
+  .topbar .brand{color:var(--ink);letter-spacing:.12em;display:flex;align-items:center;gap:8px;}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--magenta);box-shadow:0 0 10px var(--magenta);}
+  .topbar .clock{color:var(--dim);}
+
+  .desktop-icons{
+    position:absolute;top:66px;left:20px;z-index:5;
+    display:flex;flex-direction:column;gap:22px;
+  }
+  .icon{
+    width:88px;text-align:center;cursor:pointer;user-select:none;
+    color:var(--dim);font-family:'Space Mono',monospace;font-size:10.5px;
+    letter-spacing:.03em;
+  }
+  .icon .glyph{
+    width:52px;height:52px;margin:0 auto 8px;
+    border:1px solid var(--line);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;background:rgba(255,255,255,0.02);
+    transition:.15s;
+  }
+  .icon:hover .glyph{border-color:var(--cyan);box-shadow:0 0 16px rgba(8,247,212,0.25);transform:translateY(-2px);}
+  .icon:hover{color:var(--ink);}
+
+  .hero-mark{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-52%);
+    text-align:center; z-index:2; pointer-events:none;
+    width:min(820px,86vw);
+  }
+  .hero-mark .eyebrow{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--magenta);
+    letter-spacing:.35em;margin-bottom:16px;
+  }
+  .hero-mark h1{
+    font-size:clamp(38px,7vw,88px);
+    margin:0; font-weight:800; letter-spacing:-.02em;
+    background:linear-gradient(180deg,#fff, #b9b9d6 70%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 60px rgba(139,92,246,0.25);
+  }
+  .hero-mark .glitch{position:relative;display:inline-block;}
+  .hero-mark p.sub{
+    margin-top:18px;color:var(--dim);font-size:15px;
+    font-family:'Space Mono',monospace;
+  }
+
+  /* windows */
+  .window{
+    position:absolute;
+    width:420px;
+    background:rgba(15,15,24,0.92);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02);
+    backdrop-filter:blur(16px);
+    z-index:10;
+    display:none;
+    overflow:hidden;
+  }
+  .window.open{display:block;animation:pop .25s cubic-bezier(.2,.9,.3,1.3);}
+  @keyframes pop{from{opacity:0;transform:scale(.94) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  .win-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;border-bottom:1px solid var(--line);
+    cursor:move;background:rgba(255,255,255,0.02);
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--dim);
+    letter-spacing:.06em;
+  }
+  .win-head .dots{display:flex;gap:6px;}
+  .win-head .dots span{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .win-head .dots .r{background:var(--magenta);}
+  .win-head .dots .y{background:var(--amber);}
+  .win-head .dots .g{background:var(--cyan);}
+  .win-head .close{cursor:pointer;color:var(--dim);}
+  .win-head .close:hover{color:var(--ink);}
+  .win-body{padding:20px;font-size:13.5px;line-height:1.65;color:var(--ink);max-height:52vh;overflow:auto;}
+  .win-body h3{margin:0 0 10px;font-size:16px;color:var(--ink);}
+  .win-body .tag{
+    display:inline-block;font-family:'Space Mono',monospace;font-size:10px;
+    color:var(--cyan);border:1px solid rgba(8,247,212,0.35);padding:3px 8px;
+    border-radius:20px;margin:2px 6px 2px 0;
+  }
+  .win-body a.btn{
+    display:inline-block;margin-top:14px;padding:9px 16px;
+    background:var(--magenta);color:#0a0a10;text-decoration:none;
+    font-family:'Space Mono',monospace;font-size:11.5px;font-weight:700;
+    border-radius:6px;letter-spacing:.03em;
+  }
+  .win-body ul{padding-left:18px;margin:10px 0;}
+  .win-body li{margin-bottom:6px;color:var(--dim);}
+  .win-body li b{color:var(--ink);}
+
+  .stat-row{display:flex;gap:10px;margin-top:14px;}
+  .stat{flex:1;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;}
+  .stat b{display:block;font-size:18px;color:var(--cyan);font-family:'Space Mono',monospace;}
+  .stat span{font-size:10px;color:var(--dim);}
+
+  footer.dock{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    z-index:50;display:flex;gap:6px;
+    background:rgba(15,15,24,0.75);backdrop-filter:blur(12px);
+    border:1px solid var(--line);border-radius:14px;padding:8px;
+  }
+  .dock-item{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--dim);
+    padding:8px 14px;border-radius:9px;cursor:pointer;transition:.15s;
+  }
+  .dock-item:hover{background:rgba(255,255,255,0.06);color:var(--ink);}
+
+  @media (max-width:640px){
+    .window{width:88vw;}
+    .desktop-icons{top:60px;left:12px;gap:16px;}
+    .icon{width:64px;font-size:9px;}
+    .icon .glyph{width:42px;height:42px;font-size:18px;}
+    footer.dock{max-width:92vw;overflow-x:auto;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="crt"></div>
+<div class="vignette"></div>
+
+<!-- BOOT -->
+<div id="boot">
+  <div id="boot-text" class="mono"></div>
+</div>
+<button id="skip">SKIP BOOT →</button>
+
+<!-- DESKTOP -->
+<div id="desktop">
+  <canvas id="webcanvas"></canvas>
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>AWAIS.SYS <span style="color:var(--dim)">v1.0</span></div>
+    <div class="clock mono" id="clock">--:--:--</div>
+  </div>
+
+  <div class="hero-mark">
+    <div class="eyebrow">FREELANCE WEB DEV · VANTAGE CITY OPS</div>
+    <h1 class="glitch" id="glitchTitle">NIGHTSPINNER<br>OS</h1>
+    <p class="sub">double-click reality to open a window // click icons on the left</p>
+  </div>
+
+  <div class="desktop-icons">
+    <div class="icon" data-win="about">
+      <div class="glyph">🕷️</div>ABOUT_ME
+    </div>
+    <div class="icon" data-win="projects">
+      <div class="glyph">💻</div>PROJECTS
+    </div>
+    <div class="icon" data-win="stack">
+      <div class="glyph">⚡</div>TECH_STACK
+    </div>
+    <div class="icon" data-win="hobbies">
+      <div class="glyph">🎮</div>SIDE_QUESTS
+    </div>
+    <div class="icon" data-win="contact">
+      <div class="glyph">📡</div>CONTACT
+    </div>
+  </div>
+
+  <!-- WINDOWS -->
+  <div class="window" id="win-about" style="top:16%;left:8%;">
+    <div class="win-head"><span>about_me.txt</span><span class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></span></div>
+    <div class="win-body">
+      <h3>Awais Khan</h3>
+      <p>Freelance web developer running <b style="color:var(--ink)">Awais Web Developers</b>. By day: bids, builds, ships. By night: codes an original spider-hero into existence just because he can.</p>
+      <span class="tag">React</span><span class="tag">Three.js</span><span class="tag">Freelancer.com</span><span class="tag">Chronic shipper</span>
+      <div class="stat-row">
+        <div class="stat"><b>∞</b><span>SIDE PROJECTS</span></div>
+        <div class="stat"><b>0</b><span>EM DASHES USED</span></div>
+        <div class="stat"><b>100%</b><span>NO CAP</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="window" id="win-projects" style="top:20%;left:32%;">
+    <div class="win-head"><span>projects/</span><span class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></span></div>
+    <div class="win-body">
+      <h3>Shipped from the lab</h3>
+      <ul>
+        <li><b>Nightspinner</b> — full browser 3D open-world superhero game, Three.js, cel-shaded, web-swing physics</li>
+        <li><b>Awais Chess</b> — minimax AI, SVG pieces, no mercy</li>
+        <li><b>Smashtastic Cricket</b> — IPL/PSL/BBL swipe-mechanic clone</li>
+        <li><b>PSL 2026 Arcade</b> — cricket arcade build</li>
+        <li><b>Portfolio</b> — React + TS + GSAP + Lenis scroll</li>
+      </ul>
+      <a class="btn" href="https://awaisportfolio12.vercel.app" target="_blank">VIEW PORTFOLIO →</a>
+    </div>
+  </div>
+
+  <div class="window" id="win-stack" style="top:40%;left:14%;">
+    <div class="win-head"><span>stack.config</span><span class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></span></div>
+    <div class="win-body">
+      <h3>Weapons of choice</h3>
+      <span class="tag">React</span><span class="tag">TypeScript</span><span class="tag">Vite</span>
+      <span class="tag">Three.js / R3F</span><span class="tag">GSAP</span><span class="tag">Lenis</span>
+      <span class="tag">Claude Code</span><span class="tag">Composio</span><span class="tag">Vercel</span>
+      <p style="margin-top:14px;">Also known to fight trigger stick drift at 2am for sport.</p>
+    </div>
+  </div>
+
+  <div class="window" id="win-hobbies" style="top:52%;left:36%;">
+    <div class="win-head"><span>side_quests.log</span><span class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></span></div>
+    <div class="win-body">
+      <h3>Off the clock</h3>
+      <ul>
+        <li><b>Cricket 26</b> — currently at war with controller drift</li>
+        <li><b>Football</b> — Ronaldo believer, no debate</li>
+        <li><b>Chess</b> — undefeated against his own minimax bot (rigged)</li>
+        <li><b>Minecraft</b> — runs a server economy, diamond-pegged</li>
+        <li><b>AI tooling</b> — benchmarking models for fun, not clout</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="window" id="win-contact" style="top:24%;left:58%;">
+    <div class="win-head"><span>contact.sh</span><span class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></span></div>
+    <div class="win-body">
+      <h3>Open a connection</h3>
+      <p class="mono" style="color:var(--cyan);">$ curl awais --hire</p>
+      <p>Available for web dev contracts, AI tooling builds, and unhinged browser games nobody asked for.</p>
+      <a class="btn" href="https://awaisportfolio12.vercel.app" target="_blank">GET IN TOUCH →</a>
+    </div>
+  </div>
+
+  <footer class="dock">
+    <div class="dock-item" data-win="about">about</div>
+    <div class="dock-item" data-win="projects">projects</div>
+    <div class="dock-item" data-win="stack">stack</div>
+    <div class="dock-item" data-win="hobbies">quests</div>
+    <div class="dock-item" data-win="contact">contact</div>
+  </footer>
+</div>
+
+<script>
+// ---------- BOOT SEQUENCE ----------
+const bootLines = [
+  {t:"AWAIS.SYS BIOS v1.0.26", c:""},
+  {t:"initializing vantage_city_kernel ... ", c:"amber", suffix:"OK"},
+  {t:"mounting /dev/nightspinner ... ", c:"amber", suffix:"OK"},
+  {t:"loading web-shooter drivers ... ", c:"amber", suffix:"OK"},
+  {t:"checking controller drift status ... ", c:"amber", suffix:"UNRESOLVED (as usual)"},
+  {t:"compiling side_quests.log ... ", c:"amber", suffix:"OK"},
+  {t:"authenticating freelancer credentials ... ", c:"amber", suffix:"OK"},
+  {t:"", c:""},
+  {t:"welcome back, Awais.", c:"mag"},
+];
+
+const bootEl = document.getElementById('boot-text');
+let bootDone = false;
+
+async function typeLine(line){
+  const span = document.createElement('div');
+  bootEl.appendChild(span);
+  const cls = line.c ? (line.c==='amber'?'amber':'mag') : '';
+  for(let i=0;i<=line.t.length;i++){
+    if(bootDone) { span.innerHTML = `<span class="${cls}">${line.t}</span>`; return; }
+    span.innerHTML = `<span class="${cls}">${line.t.slice(0,i)}</span><span class="caret"></span>`;
+    await new Promise(r=>setTimeout(r, 10 + Math.random()*14));
+  }
+  if(line.suffix){
+    span.innerHTML = `<span class="${cls}">${line.t}</span><span style="color:var(--cyan)">${line.suffix}</span>`;
+  } else {
+    span.innerHTML = `<span class="${cls}">${line.t}</span>`;
+  }
+}
+
+async function runBoot(){
+  for(const line of bootLines){
+    if(bootDone) break;
+    await typeLine(line);
+    await new Promise(r=>setTimeout(r, 90));
+  }
+  finishBoot();
+}
+
+function finishBoot(){
+  bootDone = true;
+  document.getElementById('boot').classList.add('hidden');
+  document.getElementById('skip').style.display='none';
+  document.getElementById('desktop').classList.add('show');
+}
+
+document.getElementById('skip').addEventListener('click', finishBoot);
+runBoot();
+
+// ---------- CLOCK ----------
+function tick(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+}
+tick(); setInterval(tick,1000);
+
+// ---------- WINDOW MANAGEMENT ----------
+let zTop = 20;
+function openWindow(id){
+  const win = document.getElementById('win-'+id);
+  if(!win) return;
+  win.style.display='block';
+  win.classList.remove('open'); void win.offsetWidth; win.classList.add('open');
+  win.style.zIndex = ++zTop;
+}
+document.querySelectorAll('[data-win]').forEach(el=>{
+  el.addEventListener('click', ()=> openWindow(el.dataset.win));
+});
+document.querySelectorAll('.window').forEach(win=>{
+  win.addEventListener('mousedown', ()=> win.style.zIndex = ++zTop);
+});
+
+// dragging
+document.querySelectorAll('.win-head').forEach(head=>{
+  let dragging=false, ox=0, oy=0;
+  const win = head.parentElement;
+  head.addEventListener('mousedown', e=>{
+    dragging=true; ox = e.clientX - win.offsetLeft; oy = e.clientY - win.offsetTop;
+    win.style.zIndex = ++zTop;
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    win.style.left = (e.clientX-ox)+'px';
+    win.style.top = (e.clientY-oy)+'px';
+  });
+  window.addEventListener('mouseup', ()=> dragging=false);
+  // touch support
+  head.addEventListener('touchstart', e=>{
+    const t=e.touches[0];
+    dragging=true; ox=t.clientX-win.offsetLeft; oy=t.clientY-win.offsetTop;
+    win.style.zIndex=++zTop;
+  },{passive:true});
+  window.addEventListener('touchmove', e=>{
+    if(!dragging) return;
+    const t=e.touches[0];
+    win.style.left=(t.clientX-ox)+'px';
+    win.style.top=(t.clientY-oy)+'px';
+  },{passive:true});
+  window.addEventListener('touchend', ()=>dragging=false);
+});
+
+// open first window by default on desktop sizes after boot
+setTimeout(()=>{ if(window.innerWidth>900) openWindow('about'); }, 1400);
+
+// ---------- WEB CANVAS BACKDROP ----------
+const canvas = document.getElementById('webcanvas');
+const ctx = canvas.getContext('2d');
+let W,H;
+function resize(){ W=canvas.width=innerWidth; H=canvas.height=innerHeight; }
+resize(); addEventListener('resize', resize);
+
+const mouse = {x:innerWidth/2, y:innerHeight/2};
+addEventListener('mousemove', e=>{ mouse.x=e.clientX; mouse.y=e.clientY; });
+
+// generate a sparse web-node field
+const nodes = [];
+const NODE_COUNT = Math.min(70, Math.floor((innerWidth*innerHeight)/18000));
+for(let i=0;i<NODE_COUNT;i++){
+  nodes.push({
+    x: Math.random()*innerWidth,
+    y: Math.random()*innerHeight,
+    vx: (Math.random()-.5)*0.15,
+    vy: (Math.random()-.5)*0.15,
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  for(const n of nodes){
+    n.x += n.vx; n.y += n.vy;
+    if(n.x<0||n.x>W) n.vx*=-1;
+    if(n.y<0||n.y>H) n.vy*=-1;
+  }
+  ctx.lineWidth = 1;
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      const a=nodes[i], b=nodes[j];
+      const dx=a.x-b.x, dy=a.y-b.y;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if(d<150){
+        const mdx = (a.x+b.x)/2 - mouse.x, mdy=(a.y+b.y)/2-mouse.y;
+        const mdist = Math.sqrt(mdx*mdx+mdy*mdy);
+        const glow = Math.max(0, 1 - mdist/380);
+        ctx.strokeStyle = glow>0.05
+          ? `rgba(255,46,111,${0.05+glow*0.35})`
+          : `rgba(139,92,246,${0.06*(1-d/150)})`;
+        ctx.beginPath();
+        ctx.moveTo(a.x,a.y);
+        ctx.lineTo(b.x,b.y);
+        ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+// ---------- TITLE GLITCH ----------
+const glitchTitle = document.getElementById('glitchTitle');
+setInterval(()=>{
+  if(Math.random()>0.88){
+    glitchTitle.style.textShadow = `2px 0 ${getComputedStyle(document.documentElement).getPropertyValue('--magenta')}, -2px 0 ${getComputedStyle(document.documentElement).getPropertyValue('--cyan')}`;
+    setTimeout(()=>{ glitchTitle.style.textShadow=''; }, 90);
+  }
+}, 1400);
+</script>
+
+</body>
+</html>
